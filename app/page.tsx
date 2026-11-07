@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";\nimport { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Activity, AppWindow, Box, ChevronDown, CircleHelp, Cloud, Cpu, Database, FileText, HardDrive, LayoutDashboard, LifeBuoy, LockKeyhole, Network, Plus, Search, Server, Settings, Terminal, Upload, Users, Zap, ArrowUpRight, CheckCircle2, MoreHorizontal, Play, RotateCw, Square, Folder, Globe, Clock3 } from "lucide-react";
 const nav=[{title:"WORKSPACE",items:[["Overview",LayoutDashboard],["Applications",AppWindow],["Websites",Globe],["Containers",Box],["Files",Folder],["Terminal",Terminal],["Databases",Database]]},{title:"INFRASTRUCTURE",items:[["Domains",Globe],["Storage",HardDrive],["Networking",Network],["Team",Users]]},{title:"SYSTEM",items:[["Settings",Settings],["Help & support",LifeBuoy]]}];
 const apps=[{name:"Dbweb",type:"Next.js",domain:"dbweb.example.com",status:"Running",port:"3000",color:"#8b5cf6"},{name:"API Service",type:"Node.js",domain:"api.example.com",status:"Running",port:"8080",color:"#06b6d4"},{name:"Landing Page",type:"Static",domain:"example.com",status:"Stopped",port:"80",color:"#f59e0b"}];
