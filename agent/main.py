@@ -1,59 +1,181 @@
-"""Experimental authenticated local PTY WebSocket bridge. Not production-ready."""
-import asyncio, hmac, os, pty, select, struct, termios, fcntl, signal
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+"""Vps Linux agent: authenticated PTY plus live host and Docker APIs.
 
-app = FastAPI(title="Vps Agent", docs_url=None, redoc_url=None)\nfrom sites import router as sites_router\napp.include_router(sites_router)
+Run as a dedicated service account. Membership in the Docker group is effectively
+root-equivalent; only grant it to trusted operators and keep this agent private.
+"""
+import asyncio
+import hmac
+import os
+import pty
+import select
+import struct
+import termios
+import fcntl
+import signal
+import shutil
+import platform
+from datetime import datetime, timezone
+
+import psutil
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Header, HTTPException
+from pydantic import BaseModel, Field
+
+app = FastAPI(title="Vps Linux Agent", docs_url=None, redoc_url=None)
+from sites import router as sites_router
+app.include_router(sites_router)
+
 TOKEN = os.environ.get("VPS_AGENT_TOKEN", "")
 ORIGIN = os.environ.get("VPS_AGENT_ORIGIN", "")
+try:
+    import docker
+    DOCKER = docker.from_env()
+    DOCKER.ping()
+    DOCKER_ERROR = None
+except Exception as exc:
+    DOCKER = None
+    DOCKER_ERROR = str(exc)[:240]
+
+
+def authorize(value: str):
+    if not TOKEN or not hmac.compare_digest(value.removeprefix("Bearer ").strip(), TOKEN):
+        raise HTTPException(401, "Unauthorized")
+
 
 @app.get("/health")
 def health():
-    return {"status":"ok","agent":"experimental","terminal":"enabled"}
+    return {"status": "ok", "agent": "v1", "terminal": "enabled",
+            "docker": DOCKER is not None, "time": datetime.now(timezone.utc).isoformat()}
+
+
+@app.get("/api/system")
+def system(authorization: str = Header(default="")):
+    authorize(authorization)
+    vm = psutil.virtual_memory()
+    disk = psutil.disk_usage("/")
+    net = psutil.net_io_counters()
+    boot = datetime.fromtimestamp(psutil.boot_time(), timezone.utc).isoformat()
+    return {
+        "hostname": platform.node(), "platform": platform.platform(),
+        "architecture": platform.machine(), "python": platform.python_version(),
+        "cpu": {"cores": psutil.cpu_count(), "usage_percent": psutil.cpu_percent(interval=0.15)},
+        "memory": {"total": vm.total, "used": vm.used, "available": vm.available, "percent": vm.percent},
+        "disk": {"total": disk.total, "used": disk.used, "free": disk.free, "percent": disk.percent},
+        "network": {"bytes_sent": net.bytes_sent, "bytes_recv": net.bytes_recv},
+        "uptime_seconds": int(datetime.now(timezone.utc).timestamp() - psutil.boot_time()),
+        "boot_time": boot,
+    }
+
+
+@app.get("/api/docker/status")
+def docker_status(authorization: str = Header(default="")):
+    authorize(authorization)
+    return {"available": DOCKER is not None, "error": DOCKER_ERROR}
+
+
+@app.get("/api/docker/containers")
+def containers(authorization: str = Header(default="")):
+    authorize(authorization)
+    if DOCKER is None:
+        raise HTTPException(503, "Docker unavailable: " + (DOCKER_ERROR or "not installed"))
+    try:
+        rows = []
+        for c in DOCKER.containers.list(all=True):
+            c.reload()
+            rows.append({"id": c.short_id, "name": c.name, "image": c.image.tags[0] if c.image.tags else c.image.short_id,
+                        "status": c.status, "state": c.attrs.get("State", {}),
+                        "created": c.attrs.get("Created"), "ports": c.attrs.get("NetworkSettings", {}).get("Ports", {}),
+                        "labels": c.labels})
+        return rows
+    except Exception as exc:
+        raise HTTPException(502, "Docker API error: " + str(exc)[:200])
+
+
+class ContainerAction(BaseModel):
+    action: str = Field(pattern="^(start|stop|restart)$")
+
+
+@app.post("/api/docker/containers/{container_id}/action")
+def container_action(container_id: str, data: ContainerAction, authorization: str = Header(default="")):
+    authorize(authorization)
+    if DOCKER is None:
+        raise HTTPException(503, "Docker unavailable")
+    if not container_id or len(container_id) > 128:
+        raise HTTPException(400, "Invalid container ID")
+    try:
+        c = DOCKER.containers.get(container_id)
+        if data.action == "start": c.start()
+        elif data.action == "stop": c.stop(timeout=10)
+        else: c.restart(timeout=10)
+        c.reload()
+        return {"id": c.short_id, "name": c.name, "status": c.status, "action": data.action}
+    except Exception as exc:
+        raise HTTPException(502, "Docker action failed: " + str(exc)[:200])
+
+
+@app.get("/api/docker/containers/{container_id}/logs")
+def container_logs(container_id: str, tail: int = 200, authorization: str = Header(default="")):
+    authorize(authorization)
+    if DOCKER is None:
+        raise HTTPException(503, "Docker unavailable")
+    tail = max(1, min(tail, 1000))
+    try:
+        c = DOCKER.containers.get(container_id)
+        return {"id": c.short_id, "logs": c.logs(tail=tail, timestamps=True).decode("utf-8", "replace")}
+    except Exception as exc:
+        raise HTTPException(502, "Docker logs failed: " + str(exc)[:200])
+
 
 @app.websocket("/terminal")
 async def terminal(ws: WebSocket):
-    if not TOKEN or (ORIGIN and ws.headers.get("origin","") != ORIGIN):
+    if not TOKEN or (ORIGIN and ws.headers.get("origin", "") != ORIGIN):
         await ws.close(code=1008); return
     await ws.accept()
     try:
         auth = await asyncio.wait_for(ws.receive_json(), timeout=8)
-        if auth.get("type") != "auth" or not hmac.compare_digest(str(auth.get("token","")), TOKEN):
+        if auth.get("type") != "auth" or not hmac.compare_digest(str(auth.get("token", "")), TOKEN):
             await ws.close(code=1008); return
-        await ws.send_json({"type":"ready"})
+        await ws.send_json({"type": "ready"})
     except Exception:
         await ws.close(code=1008); return
+
     master, slave = pty.openpty()
-    env=os.environ.copy(); env.update({"TERM":"xterm-256color","COLORTERM":"truecolor"})
-    pid=os.fork()
+    env = os.environ.copy()
+    env.update({"TERM": "xterm-256color", "COLORTERM": "truecolor"})
+    pid = os.fork()
     if pid == 0:
-        os.close(master); os.setsid(); fcntl.ioctl(slave,termios.TIOCSCTTY,0)
-        for fd in (0,1,2): os.dup2(slave,fd)
-        if slave>2: os.close(slave)
-        shell=os.environ.get("SHELL","/bin/bash")
-        os.execvpe(shell,[shell,"-l"],env)
-    os.close(slave); os.set_blocking(master,False)
+        os.close(master); os.setsid(); fcntl.ioctl(slave, termios.TIOCSCTTY, 0)
+        for fd in (0, 1, 2): os.dup2(slave, fd)
+        if slave > 2: os.close(slave)
+        shell = os.environ.get("SHELL", "/bin/bash")
+        os.execvpe(shell, [shell, "-l"], env)
+    os.close(slave); os.set_blocking(master, False)
+
     async def read_pty():
         while True:
             try:
-                ready,_,_=select.select([master],[],[],0.1)
+                ready, _, _ = select.select([master], [], [], 0.1)
                 if ready:
-                    data=os.read(master,4096)
+                    data = os.read(master, 4096)
                     if not data: break
-                    await ws.send_text(data.decode("utf-8","replace"))
-            except (OSError,WebSocketDisconnect): break
+                    await ws.send_text(data.decode("utf-8", "replace"))
+            except (OSError, WebSocketDisconnect): break
             await asyncio.sleep(0)
-    reader=asyncio.create_task(read_pty())
+
+    reader = asyncio.create_task(read_pty())
     try:
         while True:
-            msg=await ws.receive_json()
-            if msg.get("type")=="input": os.write(master,str(msg.get("data",""))[:8192].encode())
-            elif msg.get("type")=="resize":
-                cols=max(20,min(int(msg.get("cols",100)),300)); rows=max(5,min(int(msg.get("rows",30)),120))
-                fcntl.ioctl(master,termios.TIOCSWINSZ,struct.pack("HHHH",rows,cols,0,0))
-    except WebSocketDisconnect: pass
+            msg = await ws.receive_json()
+            if msg.get("type") == "input":
+                os.write(master, str(msg.get("data", ""))[:8192].encode())
+            elif msg.get("type") == "resize":
+                cols = max(20, min(int(msg.get("cols", 100)), 300))
+                rows = max(5, min(int(msg.get("rows", 30)), 120))
+                fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+    except WebSocketDisconnect:
+        pass
     finally:
         reader.cancel()
         try: os.close(master)
         except OSError: pass
-        try: os.kill(pid,signal.SIGHUP)
+        try: os.kill(pid, signal.SIGHUP)
         except ProcessLookupError: pass
