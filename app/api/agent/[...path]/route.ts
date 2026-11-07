@@ -15,6 +15,8 @@ async function forward(req: NextRequest, ctx: Context, method: "GET" | "POST" | 
  else if(method==="POST"&&parts.length===4&&parts[0]==="docker"&&parts[1]==="containers"&&ID.test(parts[2])&&parts[3]==="action")endpoint=`/api/docker/containers/${encodeURIComponent(parts[2])}/action`;
  else if(method==="GET"&&parts.join("/")==="files")endpoint="/api/files";
  else if(method==="GET"&&parts.join("/")==="files/content")endpoint="/api/files/content";
+ else if(method==="GET"&&parts.join("/")==="files/download")endpoint="/api/files/download";
+ else if(method==="POST"&&parts.join("/")==="files/upload")endpoint="/api/files/upload";
  else if(method==="POST"&&parts.join("/")==="files/folder")endpoint="/api/files/folder";
  else if(method==="POST"&&parts.join("/")==="files/content")endpoint="/api/files/content";
  else if(method==="DELETE"&&parts.join("/")==="files")endpoint="/api/files";
