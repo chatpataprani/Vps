@@ -35,7 +35,8 @@ def list_deployments(authorization:str=Header(default="")):
  return [{"name":line.split("|",3)[0],"status":line.split("|",3)[1],"ports":line.split("|",3)[2],"repository":line.split("|",3)[3] if "|" in line else ""} for line in raw.splitlines() if line]
 @router.post("")
 def create_deployment(data:Create,authorization:str=Header(default="")):
- auth(authorization);safe_repo(str(data.repository))\n if ".." in data.branch.split("/") or "//" in data.branch or data.branch.endswith("/"):raise HTTPException(400,"Invalid branch name")
+ auth(authorization);safe_repo(str(data.repository))
+ if ".." in data.branch.split("/") or "//" in data.branch or data.branch.endswith("/"):raise HTTPException(400,"Invalid branch name")
  name=data.name.lower();env_lines=[]
  for line in data.environment.splitlines():
   if not line.strip():continue
