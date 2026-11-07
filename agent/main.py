@@ -2,7 +2,7 @@
 import asyncio, hmac, os, pty, select, struct, termios, fcntl, signal
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-app = FastAPI(title="Vps Agent", docs_url=None, redoc_url=None)
+app = FastAPI(title="Vps Agent", docs_url=None, redoc_url=None)\nfrom sites import router as sites_router\napp.include_router(sites_router)
 TOKEN = os.environ.get("VPS_AGENT_TOKEN", "")
 ORIGIN = os.environ.get("VPS_AGENT_ORIGIN", "")
 
