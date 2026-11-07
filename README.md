@@ -6,7 +6,7 @@ A modular server platform for apps, Docker, static sites, storage, and terminal.
 - Next.js responsive dashboard and xterm terminal UI.
 - Python agent with authenticated REST endpoints for system metrics, Docker, static site folders, and PTY.
 - Websites page now uses the agent's `/api/sites` through a server-side allowlisted proxy.
-- File manager supports confined browsing, UTF-8 editing (1 MiB limit), folder/file creation, saving, and individual file deletion.
+- File manager supports confined browsing, syntax-highlighted code editing (Monaco; language auto-detection/manual selection), folder/file creation, saving, 8 MiB binary upload/download, and individual file deletion.\n- Applications page can clone public GitHub/GitLab/Codeberg HTTPS repos with Dockerfiles, build images, run resource-limited managed containers, inspect logs, restart/stop/start, and delete.
 - HTTP Basic gate is enabled via `PANEL_USERNAME` and `PANEL_PASSWORD`; it fails closed if unset.
 - This is still a single-admin prototype—not production multi-user RBAC, audited terminal sessions, or a full app deployment platform. Never treat sample dashboard cards as real server state.
 
@@ -22,7 +22,7 @@ npm run dev
 ```
 Open `http://localhost:3000`. Configure Basic auth env variables before serving remotely.
 
-## File manager
+## Applications / Git deployments\n- Only public HTTPS Git repositories hosted on GitHub, GitLab, or Codeberg are accepted. A repository must include a Dockerfile.\n- Containers are limited to 512 MiB RAM, 1 CPU, and 256 PIDs, and their host ports bind to `127.0.0.1` (not public). Configure Caddy/reverse proxy explicitly to publish a domain with TLS.\n- Git builds execute repository Dockerfiles; only trusted administrators should have access. Build contexts and Docker access are privileged.\n\n## File manager
 - The agent file API is confined to `VPS_FILES_ROOT` (defaults to `./sites`); it rejects traversal and symlinks.
 - Directory deletion and binary editing are intentionally disabled. Configure the root to a dedicated data directory when possible.
 
