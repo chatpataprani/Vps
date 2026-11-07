@@ -113,6 +113,32 @@ def container_stats(container_id: str, authorization: str = Header(default="")):
         return {"cpu_percent":round(percent,2),"memory_bytes":used,"memory_limit":limit,"network_rx":rx,"network_tx":tx,"pids":s.get("pids_stats",{}).get("current",0)}
     except Exception as exc: raise HTTPException(502,"Container stats failed: "+str(exc)[:180])
 
+class ContainerCommand(BaseModel):
+    command: str = Field(min_length=1,max_length=4000)
+@app.post("/api/docker/containers/{container_id}/exec")
+def container_exec(container_id:str,data:ContainerCommand,authorization:str=Header(default="")):
+    authorize(authorization)
+    if DOCKER is None: raise HTTPException(503,"Docker unavailable")
+    try:
+        c=DOCKER.containers.get(container_id)
+        if c.status!="running": raise HTTPException(409,"Container must be running")
+        result=DOCKER.api.exec_create(c.id,cmd=["/bin/sh","-lc",data.command],stdin=False,stdout=True,stderr=True,tty=False)
+        DOCKER.api.exec_start(result["Id"],detach=True)
+        import time
+        deadline=time.monotonic()+20
+        while time.monotonic()<deadline:
+            state=DOCKER.api.exec_inspect(result["Id"])
+            if not state.get("Running"): break
+            time.sleep(.15)
+        else: raise HTTPException(504,"Command timed out after 20 seconds")
+        output=DOCKER.api.exec_start(result["Id"],detach=False) if False else DOCKER.api.exec_inspect(result["Id"])
+        logs=DOCKER.api.exec_start(result["Id"],detach=False,tty=False) if False else b""
+        # Read the exec output from the non-streaming start endpoint.
+        logs=DOCKER.api.exec_start(result["Id"],detach=False,tty=False)
+        return {"output":logs.decode("utf-8","replace")[-16000:],"exit_code":state.get("ExitCode")}
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(502,"Container command failed: "+str(exc)[:200])
+
 class ContainerAction(BaseModel):
     action: str = Field(pattern="^(start|stop|restart)$")
 
