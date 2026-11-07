@@ -134,7 +134,7 @@ def container_logs(container_id: str, tail: int = 200, authorization: str = Head
 
 @app.websocket("/terminal")
 async def terminal(ws: WebSocket):
-    if not TOKEN or (ORIGIN and ws.headers.get("origin", "") != ORIGIN):
+    if not TOKEN or not ORIGIN or ws.headers.get("origin", "") != ORIGIN:
         await ws.close(code=1008); return
     await ws.accept()
     try:
