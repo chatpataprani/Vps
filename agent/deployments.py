@@ -95,9 +95,19 @@ def redeploy(name:str,authorization:str=Header(default="")):
    source=Path(tmp+"/src")
    if not (source/"Dockerfile").is_file():raise HTTPException(400,"Repository must include a Dockerfile")
    docker("build","--pull","--tag",f"vps-{name}:latest","--label","vps.managed=true","--file",str(source/"Dockerfile"),str(source),timeout=600)
-  docker("rm","--force",name)
-  docker("run","--detach","--name",name,"--restart","unless-stopped","--publish",f"127.0.0.1:{host}:{port}","--memory","512m","--cpus","1","--pids-limit","256","--label","vps.managed=true","--label",f"vps.repo={repo}","--label",f"vps.branch={branch}","--label",f"vps.host_port={host}","--label",f"vps.container_port={port}",*sum((["--env",v] for v in env),[]),f"vps-{name}:latest")
-  return {"name":name,"redeployed":True,"status":"recreated"}
+  # Keep the previous container until the replacement starts successfully.
+  backup=f"{name}-rollback"
+  docker("rename",name,backup)
+  try:
+   docker("run","--detach","--name",name,"--restart","unless-stopped","--publish",f"127.0.0.1:{host}:{port}","--memory","512m","--cpus","1","--pids-limit","256","--label","vps.managed=true","--label",f"vps.repo={repo}","--label",f"vps.branch={branch}","--label",f"vps.host_port={host}","--label",f"vps.container_port={port}",*sum((["--env",v] for v in env),[]),f"vps-{name}:latest")
+   docker("rm","--force",backup)
+  except Exception:
+   try: docker("rm","--force",name)
+   except Exception: pass
+   try: docker("rename",backup,name)
+   except Exception: pass
+   raise
+  return {"name":name,"redeployed":True,"status":"recreated","rollback":"previous container retained until replacement starts"}
  except subprocess.TimeoutExpired:raise HTTPException(504,"Redeploy timed out")
  except subprocess.CalledProcessError as e:raise HTTPException(400,(e.stderr or "Redeploy failed")[-3000:])
 
