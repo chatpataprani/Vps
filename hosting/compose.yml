@@ -1,0 +1,23 @@
+services:
+  caddy:
+    image: caddy:2
+    container_name: vps-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../sites:/srv/sites:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [vps-edge]
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  vps-edge:
+    name: vps-edge
