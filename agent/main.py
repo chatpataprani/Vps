@@ -22,7 +22,9 @@ from pydantic import BaseModel, Field
 
 app = FastAPI(title="Vps Linux Agent", docs_url=None, redoc_url=None)
 from sites import router as sites_router
+from files import router as files_router
 app.include_router(sites_router)
+app.include_router(files_router)
 
 TOKEN = os.environ.get("VPS_AGENT_TOKEN", "")
 ORIGIN = os.environ.get("VPS_AGENT_ORIGIN", "")
