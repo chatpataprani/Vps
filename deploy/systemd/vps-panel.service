@@ -11,7 +11,9 @@ WorkingDirectory=/opt/vps
 EnvironmentFile=/etc/vps/panel.env
 Environment=NODE_ENV=production
 Environment=PORT=3000
-ExecStart=/usr/bin/npm start
+# Safe default. Set PANEL_BIND_IP to the VPS Tailscale IPv4 for phone access.
+Environment=PANEL_BIND_IP=127.0.0.1
+ExecStart=/usr/bin/npm start -- --hostname ${PANEL_BIND_IP} --port ${PORT}
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
