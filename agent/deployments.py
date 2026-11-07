@@ -26,7 +26,7 @@ class Create(BaseModel):
  name:str=Field(pattern=r"^[a-z][a-z0-9-]{1,30}$")
  repository:HttpUrl
  branch:str=Field(default="main",min_length=1,max_length=128,pattern=r"^[A-Za-z0-9._/-]+$")
- port:int=Field(default=3000,ge=1,le=65535)
+ port:int=Field(default=3000,ge=1,le=65535)\n environment:str=Field(default="",max_length=12000)
 @router.get("")
 def list_deployments(authorization:str=Header(default="")):
  auth(authorization)
@@ -35,7 +35,7 @@ def list_deployments(authorization:str=Header(default="")):
 @router.post("")
 def create_deployment(data:Create,authorization:str=Header(default="")):
  auth(authorization);safe_repo(str(data.repository))
- name=data.name.lower();WORK.mkdir(parents=True,exist_ok=True);target=WORK/name
+ name=data.name.lower();env_lines=[]\n for line in data.environment.splitlines():\n  if not line.strip():continue\n  key,sep,value=line.partition("=")\n  if not sep or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*",key) or "\\x00" in value:raise HTTPException(400,"Environment entries must be KEY=VALUE (valid variable names)")\n  env_lines.append((key,value))\n if len({k for k,v in env_lines})!=len(env_lines):raise HTTPException(400,"Duplicate environment variable")\n name=data.name.lower();WORK.mkdir(parents=True,exist_ok=True);target=WORK/name
  if target.exists():raise HTTPException(409,"Deployment name already exists")
  existing=docker("ps","-a","--filter",f"name=^{name}$","--format","{{.Names}}").splitlines()
  if existing:raise HTTPException(409,"A container with this name already exists")
@@ -50,7 +50,7 @@ def create_deployment(data:Create,authorization:str=Header(default="")):
     for m in re.findall(r"(?:0\.0\.0\.0|127\.0\.0\.1|\[::\]):(\d+)->",line):used.add(int(m))
    host=next((p for p in PORTS if p not in used),None)
    if host is None:raise HTTPException(503,"No free managed ports")
-   docker("run","--detach","--name",name,"--restart","unless-stopped","--publish",f"127.0.0.1:{host}:{data.port}","--memory","512m","--cpus","1","--pids-limit","256","--label","vps.managed=true","--label",f"vps.repo={data.repository}","--label",f"vps.host_port={host}","--label",f"vps.container_port={data.port}",f"vps-{name}:latest")
+   docker("run","--detach","--name",name,"--restart","unless-stopped","--publish",f"127.0.0.1:{host}:{data.port}","--memory","512m","--cpus","1","--pids-limit","256","--label","vps.managed=true","--label",f"vps.repo={data.repository}","--label",f"vps.host_port={host}","--label",f"vps.container_port={data.port}",*sum((["--env",f"{k}={v}"] for k,v in env_lines),[]),f"vps-{name}:latest")
    target.mkdir(exist_ok=True);(target/"deployment.json").write_text(__import__("json").dumps({"name":name,"repository":str(data.repository),"branch":data.branch,"host_port":host,"container_port":data.port}))
    return {"name":name,"repository":str(data.repository),"branch":data.branch,"host_port":host,"container_port":data.port,"url":f"http://127.0.0.1:{host}","status":"created"}
  except subprocess.TimeoutExpired:raise HTTPException(504,"Git clone/build timed out")
