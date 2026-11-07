@@ -97,6 +97,22 @@ def containers(authorization: str = Header(default="")):
         raise HTTPException(502, "Docker API error: " + str(exc)[:200])
 
 
+@app.get("/api/docker/containers/{container_id}/stats")
+def container_stats(container_id: str, authorization: str = Header(default="")):
+    authorize(authorization)
+    if DOCKER is None: raise HTTPException(503, "Docker unavailable")
+    try:
+        c=DOCKER.containers.get(container_id); s=c.stats(stream=False)
+        cpu=s.get("cpu_stats",{}); pre=s.get("precpu_stats",{})
+        cpu_delta=cpu.get("cpu_usage",{}).get("total_usage",0)-pre.get("cpu_usage",{}).get("total_usage",0)
+        sys_delta=cpu.get("system_cpu_usage",0)-pre.get("system_cpu_usage",0)
+        cores=len(cpu.get("cpu_usage",{}).get("percpu_usage",[]) or [1])
+        percent=(cpu_delta/sys_delta*cores*100) if sys_delta>0 and cpu_delta>=0 else 0
+        mem=s.get("memory_stats",{}); usage=mem.get("usage",0); cache=mem.get("stats",{}).get("cache",mem.get("stats",{}).get("inactive_file",0)); used=max(0,usage-cache); limit=mem.get("limit",0)
+        net=s.get("networks",{}).values(); rx=sum(x.get("rx_bytes",0) for x in net); tx=sum(x.get("tx_bytes",0) for x in s.get("networks",{}).values())
+        return {"cpu_percent":round(percent,2),"memory_bytes":used,"memory_limit":limit,"network_rx":rx,"network_tx":tx,"pids":s.get("pids_stats",{}).get("current",0)}
+    except Exception as exc: raise HTTPException(502,"Container stats failed: "+str(exc)[:180])
+
 class ContainerAction(BaseModel):
     action: str = Field(pattern="^(start|stop|restart)$")
 
