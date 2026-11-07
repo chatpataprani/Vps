@@ -3,7 +3,7 @@ set -euo pipefail
 # Ubuntu/Debian first-run prep. Review before running as root.
 [[ $EUID -eq 0 ]] || { echo "Run with sudo."; exit 1; }
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y git curl ca-certificates openssl python3 python3-venv python3-dev build-essential ufw
+DEBIAN_FRONTEND=noninteractive apt-get install -y git curl ca-certificates openssl python3 python3-venv python3-dev build-essential ufw fail2ban unattended-upgrades
 # Keep Next.js builds from OOMing on small machines: create 2 GiB swap only below 2 GiB RAM.
 ram_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 if (( ram_kb < 2097152 )) && ! swapon --show=NAME | grep -q '^/swapfile$'; then
