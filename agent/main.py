@@ -109,7 +109,7 @@ def container_stats(container_id: str, authorization: str = Header(default="")):
         cores=len(cpu.get("cpu_usage",{}).get("percpu_usage",[]) or [1])
         percent=(cpu_delta/sys_delta*cores*100) if sys_delta>0 and cpu_delta>=0 else 0
         mem=s.get("memory_stats",{}); usage=mem.get("usage",0); cache=mem.get("stats",{}).get("cache",mem.get("stats",{}).get("inactive_file",0)); used=max(0,usage-cache); limit=mem.get("limit",0)
-        net=s.get("networks",{}).values(); rx=sum(x.get("rx_bytes",0) for x in net); tx=sum(x.get("tx_bytes",0) for x in s.get("networks",{}).values())
+        net=list(s.get("networks",{}).values()); rx=sum(x.get("rx_bytes",0) for x in net); tx=sum(x.get("tx_bytes",0) for x in net)
         return {"cpu_percent":round(percent,2),"memory_bytes":used,"memory_limit":limit,"network_rx":rx,"network_tx":tx,"pids":s.get("pids_stats",{}).get("current",0)}
     except Exception as exc: raise HTTPException(502,"Container stats failed: "+str(exc)[:180])
 
