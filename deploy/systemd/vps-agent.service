@@ -9,10 +9,11 @@ User=vpsagent
 Group=vpsagent
 WorkingDirectory=/opt/vps/agent
 EnvironmentFile=/etc/vps/agent.env
-Environment=VPS_AGENT_HOST=127.0.0.1
+# Safe default. Override VPS_AGENT_BIND_IP to the VPS Tailscale IPv4 for phone terminal access.
+Environment=VPS_AGENT_BIND_IP=127.0.0.1
 Environment=VPS_AGENT_PORT=8787
 Environment=VPS_SITES_ROOT=/opt/vps/sites
-ExecStart=/opt/vps/agent/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8787
+ExecStart=/opt/vps/agent/.venv/bin/uvicorn main:app --host ${VPS_AGENT_BIND_IP} --port ${VPS_AGENT_PORT}
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
