@@ -24,3 +24,27 @@ Agent setup:
 The browser terminal is a separate direct WebSocket connection and currently uses a
 shared development token. It is not multi-user production auth; use a gateway-issued,
 short-lived per-session ticket before production deployment.
+
+## Docker readiness before agent
+Run Docker first, add agent service account to the Docker group, and restart agent after membership changes:
+```bash
+sudo systemctl enable --now docker
+sudo usermod -aG docker vpsagent
+sudo systemctl restart docker
+sudo systemctl restart vps-agent
+```
+Docker group is root-equivalent. Verify:
+```bash
+curl -sS -H "Authorization: Bearer $VPS_AGENT_TOKEN" http://<TAILSCALE-IP>:8787/api/docker/status
+```
+Expected `available:true`. Service ordering includes `After=docker.service`; the bootstrap enables Docker before agent installation.
+
+## Origin must be explicit
+`/etc/vps/agent.env` must contain its own non-comment line, exactly matching the dashboard browser origin:
+```env
+VPS_AGENT_ORIGIN=http://<TAILSCALE-IP>:3000
+```
+No trailing slash. Do not leave it blank. Agent rejects terminal connections if it is empty or Origin differs. After editing: `sudo systemctl restart vps-agent`.
+
+## Terminal capacity
+Default `VPS_MAX_TERMINAL_SESSIONS=2` global simultaneous shells (shared token, not per-user). Set to 1 on a tiny/single-operator server; range 1–10.
