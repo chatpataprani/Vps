@@ -200,9 +200,26 @@ async def terminal(ws: WebSocket):
                 try: os.close(fd)
                 except OSError: pass
         if pid is not None:
-            try: os.kill(pid, signal.SIGHUP)
+            # The shell owns a process group (setsid in the child). Close the
+            # whole interactive job tree, then reap the shell to avoid zombies.
+            try: os.killpg(pid, signal.SIGHUP)
             except ProcessLookupError: pass
-            try: os.waitpid(pid, os.WNOHANG)
-            except (ChildProcessError, OSError): pass
+            deadline = asyncio.get_running_loop().time() + 1.0
+            reaped = False
+            while asyncio.get_running_loop().time() < deadline:
+                try:
+                    got, _ = os.waitpid(pid, os.WNOHANG)
+                    if got == pid:
+                        reaped = True
+                        break
+                except (ChildProcessError, OSError):
+                    reaped = True
+                    break
+                await asyncio.sleep(0.05)
+            if not reaped:
+                try: os.killpg(pid, signal.SIGKILL)
+                except ProcessLookupError: pass
+                try: os.waitpid(pid, 0)
+                except (ChildProcessError, OSError): pass
         async with TERMINAL_LOCK:
             TERMINAL_ACTIVE = max(0, TERMINAL_ACTIVE - 1)
