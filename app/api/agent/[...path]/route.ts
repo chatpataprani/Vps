@@ -16,7 +16,8 @@ async function forward(req: NextRequest, ctx: Context, method: "GET" | "POST" | 
  else if(method==="GET"&&parts.join("/")==="deployments")endpoint="/api/deployments";
  else if(method==="POST"&&parts.join("/")==="deployments")endpoint="/api/deployments";
  else if(method==="GET"&&parts.length===3&&parts[0]==="deployments"&&ID.test(parts[1])&&parts[2]==="logs")endpoint="/api/deployments/"+encodeURIComponent(parts[1])+"/logs";
- else if(method==="POST"&&parts.length===3&&parts[0]==="deployments"&&ID.test(parts[1])&&parts[2]==="redeploy")endpoint="/api/deployments/"+encodeURIComponent(parts[1])+"/redeploy";\n else if(method==="POST"&&parts.length===3&&parts[0]==="deployments"&&ID.test(parts[1])&&["start","stop","restart"].includes(parts[2]))endpoint="/api/deployments/"+encodeURIComponent(parts[1])+"/"+parts[2];
+ else if(method==="POST"&&parts.length===3&&parts[0]==="deployments"&&ID.test(parts[1])&&parts[2]==="redeploy")endpoint="/api/deployments/"+encodeURIComponent(parts[1])+"/redeploy";
+ else if(method==="POST"&&parts.length===3&&parts[0]==="deployments"&&ID.test(parts[1])&&["start","stop","restart"].includes(parts[2]))endpoint="/api/deployments/"+encodeURIComponent(parts[1])+"/"+parts[2];
  else if(method==="DELETE"&&parts.length===2&&parts[0]==="deployments"&&ID.test(parts[1]))endpoint="/api/deployments/"+encodeURIComponent(parts[1]);
  else if(method==="GET"&&parts.join("/")==="files")endpoint="/api/files";
  else if(method==="GET"&&parts.join("/")==="files/content")endpoint="/api/files/content";
