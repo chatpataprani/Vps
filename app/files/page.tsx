@@ -1,5 +1,6 @@
 "use client";
-import {useCallback,useEffect,useState} from "react";\nimport CodeEditor from "./code-editor";
+import {useCallback,useEffect,useState} from "react";
+import CodeEditor from "./code-editor";
 import {ArrowLeft,File,Folder,FolderPlus,FilePlus,RefreshCw,Save,Trash2,ChevronRight,AlertCircle,Upload,Download} from "lucide-react";
 type Item={name:string;path:string;type:"file"|"directory";size:number;modified:number};
 export default function FilesPage(){const [path,setPath]=useState(""),[items,setItems]=useState<Item[]>([]),[selected,setSelected]=useState(""),[content,setContent]=useState(""),[loading,setLoading]=useState(false),[error,setError]=useState(""),[busy,setBusy]=useState(false);
