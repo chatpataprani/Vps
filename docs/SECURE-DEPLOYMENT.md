@@ -17,7 +17,18 @@ Review and run `sudo bash deploy/bootstrap-ubuntu.sh` on Ubuntu/Debian. It insta
 
 UFW public rules: SSH + 80 + 443 only. TCP 3000/8787 are permitted only on `tailscale0`. Verify with `sudo ufw status numbered`. Do not add public 3000/8787 rules.
 
-Install Docker only if you need container management/static hosting. Docker-group membership is root-equivalent.
+Docker is installed and started by bootstrap BEFORE the agent: `sudo systemctl enable --now docker`. Add the service account to the Docker group (this is root-equivalent access; only do this if you trust the Vps admin agent completely):
+```bash
+sudo usermod -aG docker vpsagent
+sudo systemctl restart docker
+sudo systemctl restart vps-agent
+```
+Then verify (use the agent token):
+```bash
+curl -sS -H "Authorization: Bearer $VPS_AGENT_TOKEN" http://<TAILSCALE-IP>:8787/api/docker/status
+# Expected: {"available":true,"error":null}
+```
+If `available:false`, check `sudo -u vpsagent docker info`, Docker service, group membership (`id vpsagent`), then restart agent again. Docker-group membership is root-equivalent.
 
 ## Panel credentials
 Set server-only values in `/etc/vps/panel.env`:
@@ -77,3 +88,11 @@ This repository contains **no generated live credentials**. The strings in env e
 - SSH private key: generated and kept ONLY on your phone/computer; never upload it to GitHub or the VPS. Rotate/revoke by removing old public key from authorized_keys and adding a new key.
 - Tailscale identity/device authorization: handled by your Tailscale account; revoke lost devices in Tailscale admin.
 No credentials have been generated or stored by this repository automation. If any token/password was ever pasted into a chat, terminal log, or committed file, treat it as compromised and rotate it immediately.
+
+## Exact phone terminal URL
+When opening the panel as `http://100.88.77.66:3000` (replace with YOUR actual Tailscale IPv4), the WebSocket URL to type in the Terminal page is:
+`ws://100.88.77.66:8787/terminal`
+Replace that example IP with your actual VPS Tailscale IP. Do not type `localhost` or `127.0.0.1` on your phone. The terminal UI auto-fills the URL from the dashboard hostname; verify/edit it if needed. On HTTPS dashboard, use `wss://<same-private-host>:8787/terminal` only when the agent endpoint is actually TLS-enabled (plain Uvicorn is ws:// only).
+
+## Terminal session cap
+The agent enforces a global cap of **2 concurrent terminal sessions** by default (`VPS_MAX_TERMINAL_SESSIONS=2`, configurable 1–10). Because this prototype uses one shared token, the cap is global—not per account/user. At limit, new connections are rejected with WebSocket close code 1013. Use 1 session for a small single-admin VPS; 2 is a reasonable default.
