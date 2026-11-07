@@ -1,5 +1,5 @@
 """Confined file manager API. All operations stay inside VPS_FILES_ROOT."""
-import os, hmac
+import os, hmac, base64
 from pathlib import Path
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -69,3 +69,25 @@ def delete_file(path:str,authorization:str=Header(default="")):
     if not p.exists(): raise HTTPException(404,"Path not found")
     if p.is_dir(): raise HTTPException(400,"Directory deletion is disabled; delete files individually")
     p.unlink(); return {"deleted":path}
+
+class Upload(BaseModel):
+    path:str=Field(min_length=1,max_length=512)
+    data_base64:str=Field(max_length=11_200_000)
+
+@router.post("/upload")
+def upload_file(data:Upload,authorization:str=Header(default="")):
+    auth(authorization); p=safe(data.path)
+    try: raw=base64.b64decode(data.data_base64,validate=True)
+    except Exception: raise HTTPException(400,"Invalid base64 data")
+    if len(raw)>8*1024*1024: raise HTTPException(413,"Upload limit is 8 MiB")
+    p.parent.mkdir(parents=True,exist_ok=True)
+    if p.exists() and not p.is_file(): raise HTTPException(400,"Target is not a file")
+    tmp=p.with_name(p.name+".vps-upload-tmp"); tmp.write_bytes(raw); os.replace(tmp,p)
+    return {"uploaded":data.path,"bytes":len(raw)}
+
+@router.get("/download")
+def download_file(path:str,authorization:str=Header(default="")):
+    auth(authorization); p=safe(path)
+    if not p.is_file(): raise HTTPException(404,"File not found")
+    if p.stat().st_size>8*1024*1024: raise HTTPException(413,"Download limit is 8 MiB")
+    return {"path":path,"name":p.name,"data_base64":base64.b64encode(p.read_bytes()).decode("ascii")}
