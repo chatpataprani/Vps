@@ -1,5 +1,5 @@
 "use client";
-import Editor from "@monaco-editor/react";
+import dynamic from "next/dynamic";\nconst Editor=dynamic(()=>import("@monaco-editor/react").then(m=>m.default),{ssr:false,loading:()=> <div className="p-4 text-xs text-slate-500">Loading editor…</div>});
 import {useMemo,useState} from "react";
 const languages=["auto","javascript","typescript","json","html","css","scss","less","python","java","c","cpp","csharp","go","rust","php","ruby","swift","kotlin","sql","mysql","pgsql","shell","powershell","yaml","xml","markdown","dockerfile","ini","plaintext"];
 const extMap:Record<string,string>={js:"javascript",jsx:"javascript",mjs:"javascript",cjs:"javascript",ts:"typescript",tsx:"typescript",json:"json",html:"html",htm:"html",css:"css",scss:"scss",less:"less",py:"python",java:"java",c:"c",h:"c",cpp:"cpp",cc:"cpp",cs:"csharp",go:"go",rs:"rust",php:"php",rb:"ruby",swift:"swift",kt:"kotlin",sql:"sql",sh:"shell",bash:"shell",zsh:"shell",ps1:"powershell",yml:"yaml",yaml:"yaml",xml:"xml",md:"markdown",dockerfile:"dockerfile",ini:"ini"};
