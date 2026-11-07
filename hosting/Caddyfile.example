@@ -1,0 +1,14 @@
+# Replace domains with domains whose DNS points to this VPS.
+example.com {
+  root * /srv/sites/example.com
+  encode zstd gzip
+  file_server
+  try_files {path} {path}/ /index.html
+}
+
+# Add more sites:
+# docs.example.com {
+#   root * /srv/sites/docs.example.com
+#   encode zstd gzip
+#   file_server
+# }
