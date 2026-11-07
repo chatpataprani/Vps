@@ -6,6 +6,7 @@ A modular server platform for apps, Docker, static sites, storage, and terminal.
 - Next.js responsive dashboard and xterm terminal UI.
 - Python agent with authenticated REST endpoints for system metrics, Docker, static site folders, and PTY.
 - Websites page now uses the agent's `/api/sites` through a server-side allowlisted proxy.
+- File manager supports confined browsing, UTF-8 editing (1 MiB limit), folder/file creation, saving, and individual file deletion.
 - HTTP Basic gate is enabled via `PANEL_USERNAME` and `PANEL_PASSWORD`; it fails closed if unset.
 - This is still a single-admin prototype—not production multi-user RBAC, audited terminal sessions, or a full app deployment platform. Never treat sample dashboard cards as real server state.
 
@@ -20,6 +21,10 @@ npm install
 npm run dev
 ```
 Open `http://localhost:3000`. Configure Basic auth env variables before serving remotely.
+
+## File manager
+- The agent file API is confined to `VPS_FILES_ROOT` (defaults to `./sites`); it rejects traversal and symlinks.
+- Directory deletion and binary editing are intentionally disabled. Configure the root to a dedicated data directory when possible.
 
 ## Static website hosting
 Docker Caddy is **static-site-only**. It serves folders under `sites/<domain>`, and can provide HTTPS for public domains with DNS and ports 80/443. It must not proxy the panel or agent. See [hosting README](hosting/README.md).
