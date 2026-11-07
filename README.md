@@ -12,7 +12,7 @@ A modular server platform for apps, Docker, static sites, storage, and terminal.
 ## Secure remote access (important)
 **Do not expose TCP 3000 or 8787 publicly.** Use Tailscale and bind panel/agent to the VPS's Tailscale IP. Connect Android to the same tailnet, then open `http://<VPS-TAILSCALE-IP>:3000`. Terminal URL is `ws://<VPS-TAILSCALE-IP>:8787/terminal`. Set `VPS_AGENT_ORIGIN` to the exact dashboard origin you open (scheme + IP/hostname + port). Keep 3000/8787 restricted to `tailscale0`.
 
-Follow [Secure deployment and phone access](docs/SECURE-DEPLOYMENT.md) and [agent setup](agent/DEPLOYMENT.md). The optional [Ubuntu bootstrap](deploy/bootstrap-ubuntu.sh) installs prerequisites, Node 20, Tailscale, adds 2 GiB swap when RAM <2 GiB, and configures UFW with SSH allowed before enable. Review it first and confirm your real SSH port.
+Follow [Secure deployment and phone access](docs/SECURE-DEPLOYMENT.md) and [agent setup](agent/DEPLOYMENT.md). The optional [Ubuntu/Debian bootstrap](deploy/bootstrap-ubuntu.sh) checks Ubuntu 24.04+/Debian 12+ and Python 3.11+, installs Node.js 22 LTS or newer and Tailscale, adds 2 GiB swap when RAM <2 GiB, and configures UFW with SSH allowed before enable. Review it first and confirm your real SSH port.
 
 ## Run frontend locally
 ```bash
