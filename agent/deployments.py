@@ -25,7 +25,7 @@ def safe_repo(url):
 class Create(BaseModel):
  name:str=Field(pattern=r"^[a-z][a-z0-9-]{1,30}$")
  repository:HttpUrl
- branch:str=Field(default="main",min_length=1,max_length=128,pattern=r"^[A-Za-z0-9._/-]+$")
+ branch:str=Field(default="main",min_length=1,max_length=128,pattern=r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
  port:int=Field(default=3000,ge=1,le=65535)
  environment:str=Field(default="",max_length=12000)
 @router.get("")
@@ -35,7 +35,7 @@ def list_deployments(authorization:str=Header(default="")):
  return [{"name":line.split("|",3)[0],"status":line.split("|",3)[1],"ports":line.split("|",3)[2],"repository":line.split("|",3)[3] if "|" in line else ""} for line in raw.splitlines() if line]
 @router.post("")
 def create_deployment(data:Create,authorization:str=Header(default="")):
- auth(authorization);safe_repo(str(data.repository))
+ auth(authorization);safe_repo(str(data.repository))\n if ".." in data.branch.split("/") or "//" in data.branch or data.branch.endswith("/"):raise HTTPException(400,"Invalid branch name")
  name=data.name.lower();env_lines=[]
  for line in data.environment.splitlines():
   if not line.strip():continue
