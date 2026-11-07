@@ -1,42 +1,32 @@
 # Vps — Self-hosted control panel
 
-A custom hosting dashboard inspired by the best open-source self-hosting projects:
+An original, modular server platform bringing app hosting, Docker, storage, and terminal into one dashboard. Inspired by ideas from Coolify, Dokploy, CasaOS, Portainer, and File Browser—not a clone of any one panel.
 
-- **Coolify / Dokploy:** application deployments, Git-based workflows, domains, logs, container terminal concepts.
-- **CasaOS / ReCasaOS:** storage overview, file manager, app dashboard.
-- **File Browser:** browser-based file operations.
-- **xterm.js:** browser terminal UI (terminal backend must be connected securely).
+## Current repository status
 
-## Project status
+- **Dashboard:** responsive Next.js UI prototype; metrics/app rows are sample data.
+- **Terminal UI:** xterm.js at `/terminal`.
+- **Agent:** experimental Python PTY WebSocket bridge under `agent/`. It can open a real shell when run locally with the right configuration, but is not production hardened or multi-user ready.
+- **Not implemented yet:** production authentication/roles, live metrics API, Docker lifecycle API, file manager backend, Git deploy engine, domains/TLS automation, database provisioning, backups, audit system, secure agent tunnel/installer.
 
-This repository starts with a responsive dashboard UI prototype. Metrics and app entries are demo data until a Linux agent/API is implemented and connected.
+Please don't treat demo metrics or app cards as live server state.
 
-## Stack
-
-- Next.js App Router + TypeScript
-- Tailwind CSS
-- Lucide icons
-- Docker Engine + a separate least-privilege server agent (planned)
-- WebSocket terminal gateway (planned; never expose Docker socket or host shell directly to the browser)
-
-## Local development
-
+## Frontend
 ```bash
 npm install
 npm run dev
 ```
+Open `http://localhost:3000`. Terminal UI: `http://localhost:3000/terminal`.
 
-## Planned modules
+## Experimental local terminal agent
+Read [agent/README.md](agent/README.md) and [Terminal & Agent architecture](docs/TERMINAL-AND-AGENT.md) first. Use a dedicated non-root Linux account, a strong secret, and loopback binding. Do not expose the prototype directly to the internet. Production needs TLS/WSS, short-lived tickets, per-user permissions, session auditing, limits, and a secure outbound agent tunnel.
 
-- Overview: CPU, memory, disk, uptime
-- Applications: deploy, start/stop, logs, domains
-- Containers: Docker lifecycle and resource stats
-- Files: scoped file browser/upload/download
-- Terminal: authenticated WebSocket session
-- Domains & TLS
-- Databases and backups
-- Server settings and audit logs
+## Architecture and roadmap
+- [Product roadmap](ROADMAP.md)
+- [Terminal and agent security design](docs/TERMINAL-AND-AGENT.md)
 
-## Security
+## Planned platform modules
+Overview/live metrics · Applications/Git deploy · Docker/Compose · Terminal · scoped File Manager · Domains/reverse proxy/SSL · Databases · Storage/volumes · Networking · Backups/restore · Team/RBAC · API tokens · audit logs · notifications · agent updates.
 
-A production installation must use authentication, authorization, isolated terminal sessions, path allowlists, command auditing, rate limits, TLS, and a restricted agent. Do not run arbitrary shell commands from unauthenticated HTTP endpoints. Never mount Docker socket into a public web app.
+## Security baseline
+Never execute arbitrary shell commands from unauthenticated endpoints. Never expose Docker's socket to the public web app. All agent operations must validate permissions and inputs; file access must be confined to configured roots; secrets must remain server-side and never be committed.
