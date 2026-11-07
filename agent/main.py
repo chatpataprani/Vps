@@ -1,13 +1,10 @@
 """Experimental authenticated local PTY WebSocket bridge. Not production-ready."""
-import asyncio, hmac, os, pty, select, struct, termios, fcntl
+import asyncio, hmac, os, pty, select, struct, termios, fcntl, signal
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
 
 app = FastAPI(title="Vps Agent", docs_url=None, redoc_url=None)
 TOKEN = os.environ.get("VPS_AGENT_TOKEN", "")
 ORIGIN = os.environ.get("VPS_AGENT_ORIGIN", "")
-HOST = os.environ.get("VPS_AGENT_HOST", "127.0.0.1")
-PORT = int(os.environ.get("VPS_AGENT_PORT", "8787"))
 
 @app.get("/health")
 def health():
@@ -15,20 +12,25 @@ def health():
 
 @app.websocket("/terminal")
 async def terminal(ws: WebSocket):
-    origin = ws.headers.get("origin", "")
-    auth = ws.headers.get("authorization", "")
-    # Browser WebSocket cannot set Authorization; use a secure reverse proxy to inject it.
-    if not TOKEN or not hmac.compare_digest(auth.removeprefix("Bearer "), TOKEN) or (ORIGIN and origin != ORIGIN):
+    if not TOKEN or (ORIGIN and ws.headers.get("origin","") != ORIGIN):
         await ws.close(code=1008); return
     await ws.accept()
+    try:
+        auth = await asyncio.wait_for(ws.receive_json(), timeout=8)
+        if auth.get("type") != "auth" or not hmac.compare_digest(str(auth.get("token","")), TOKEN):
+            await ws.close(code=1008); return
+        await ws.send_json({"type":"ready"})
+    except Exception:
+        await ws.close(code=1008); return
     master, slave = pty.openpty()
-    env = os.environ.copy(); env.update({"TERM":"xterm-256color","COLORTERM":"truecolor"})
-    pid = os.fork()
+    env=os.environ.copy(); env.update({"TERM":"xterm-256color","COLORTERM":"truecolor"})
+    pid=os.fork()
     if pid == 0:
-        os.close(master); os.setsid(); fcntl.ioctl(slave, termios.TIOCSCTTY, 0)
+        os.close(master); os.setsid(); fcntl.ioctl(slave,termios.TIOCSCTTY,0)
         for fd in (0,1,2): os.dup2(slave,fd)
-        if slave > 2: os.close(slave)
-        os.execvpe(os.environ.get("SHELL","/bin/bash"), [os.environ.get("SHELL","/bin/bash"),"-l"], env)
+        if slave>2: os.close(slave)
+        shell=os.environ.get("SHELL","/bin/bash")
+        os.execvpe(shell,[shell,"-l"],env)
     os.close(slave); os.set_blocking(master,False)
     async def read_pty():
         while True:
@@ -44,9 +46,7 @@ async def terminal(ws: WebSocket):
     try:
         while True:
             msg=await ws.receive_json()
-            if msg.get("type")=="input":
-                data=str(msg.get("data",""))[:8192]
-                os.write(master,data.encode())
+            if msg.get("type")=="input": os.write(master,str(msg.get("data",""))[:8192].encode())
             elif msg.get("type")=="resize":
                 cols=max(20,min(int(msg.get("cols",100)),300)); rows=max(5,min(int(msg.get("rows",30)),120))
                 fcntl.ioctl(master,termios.TIOCSWINSZ,struct.pack("HHHH",rows,cols,0,0))
@@ -55,5 +55,5 @@ async def terminal(ws: WebSocket):
         reader.cancel()
         try: os.close(master)
         except OSError: pass
-        try: os.kill(pid, signal.SIGHUP)
-        except Exception: pass
+        try: os.kill(pid,signal.SIGHUP)
+        except ProcessLookupError: pass
