@@ -1,0 +1,33 @@
+# Node / Next
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+
+# Environment and secrets (allow only documented examples)
+.env
+.env.*
+!.env.example
+agent/.env
+agent/.env.*
+!agent/.env.example
+/etc/vps/
+
+# Python
+.venv/
+venv/
+agent/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Local/editor/OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+npm-debug.log*
