@@ -26,7 +26,8 @@ class Create(BaseModel):
  name:str=Field(pattern=r"^[a-z][a-z0-9-]{1,30}$")
  repository:HttpUrl
  branch:str=Field(default="main",min_length=1,max_length=128,pattern=r"^[A-Za-z0-9._/-]+$")
- port:int=Field(default=3000,ge=1,le=65535)\n environment:str=Field(default="",max_length=12000)
+ port:int=Field(default=3000,ge=1,le=65535)
+ environment:str=Field(default="",max_length=12000)
 @router.get("")
 def list_deployments(authorization:str=Header(default="")):
  auth(authorization)
@@ -35,7 +36,14 @@ def list_deployments(authorization:str=Header(default="")):
 @router.post("")
 def create_deployment(data:Create,authorization:str=Header(default="")):
  auth(authorization);safe_repo(str(data.repository))
- name=data.name.lower();env_lines=[]\n for line in data.environment.splitlines():\n  if not line.strip():continue\n  key,sep,value=line.partition("=")\n  if not sep or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*",key) or "\\x00" in value:raise HTTPException(400,"Environment entries must be KEY=VALUE (valid variable names)")\n  env_lines.append((key,value))\n if len({k for k,v in env_lines})!=len(env_lines):raise HTTPException(400,"Duplicate environment variable")\n name=data.name.lower();WORK.mkdir(parents=True,exist_ok=True);target=WORK/name
+ name=data.name.lower();env_lines=[]
+ for line in data.environment.splitlines():
+  if not line.strip():continue
+  key,sep,value=line.partition("=")
+  if not sep or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*",key) or "\\x00" in value:raise HTTPException(400,"Environment entries must be KEY=VALUE (valid variable names)")
+  env_lines.append((key,value))
+ if len({k for k,v in env_lines})!=len(env_lines):raise HTTPException(400,"Duplicate environment variable")
+ name=data.name.lower();WORK.mkdir(parents=True,exist_ok=True);target=WORK/name
  if target.exists():raise HTTPException(409,"Deployment name already exists")
  existing=docker("ps","-a","--filter",f"name=^{name}$","--format","{{.Names}}").splitlines()
  if existing:raise HTTPException(409,"A container with this name already exists")
@@ -91,7 +99,8 @@ def redeploy(name:str,authorization:str=Header(default="")):
   return {"name":name,"redeployed":True,"status":"recreated"}
  except subprocess.TimeoutExpired:raise HTTPException(504,"Redeploy timed out")
  except subprocess.CalledProcessError as e:raise HTTPException(400,(e.stderr or "Redeploy failed")[-3000:])
-\n@router.delete("/{name}")
+
+@router.delete("/{name}")
 def delete(name:str,authorization:str=Header(default="")):
  auth(authorization)
  if not NAME.fullmatch(name):raise HTTPException(400,"Invalid name")
