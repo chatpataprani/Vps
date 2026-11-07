@@ -3,7 +3,7 @@ set -euo pipefail
 # Ubuntu/Debian first-run prep. Review before running as root.
 [[ $EUID -eq 0 ]] || { echo "Run with sudo."; exit 1; }
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y git curl ca-certificates openssl python3 python3-venv python3-dev build-essential ufw fail2ban unattended-upgrades
+DEBIAN_FRONTEND=noninteractive apt-get install -y git curl ca-certificates openssl python3 python3-venv python3-dev build-essential ufw fail2ban unattended-upgrades docker.io docker-compose-v2
 # Keep Next.js builds from OOMing on small machines: create 2 GiB swap only below 2 GiB RAM.
 ram_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 if (( ram_kb < 2097152 )) && ! swapon --show=NAME | grep -q '^/swapfile$'; then
@@ -17,7 +17,7 @@ if ! command -v node >/dev/null || [[ $(node -p 'Number(process.versions.node.sp
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y nodejs
 fi
-# Tailscale install script is upstream maintained.
+# Install/start Docker before the Vps agent; enable at boot.\nsystemctl enable --now docker\n\n# Tailscale install script is upstream maintained.
 if ! command -v tailscale >/dev/null; then curl -fsSL https://tailscale.com/install.sh | sh; fi
 # Firewall: add SSH first (custom SSH port supported), then web ports, then tailnet-only panel/agent.
 read -r -p "SSH port (default 22; confirm your actual sshd port): " SSH_PORT
