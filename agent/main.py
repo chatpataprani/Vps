@@ -30,6 +30,9 @@ app.include_router(deployments_router)
 
 TOKEN = os.environ.get("VPS_AGENT_TOKEN", "")
 ORIGIN = os.environ.get("VPS_AGENT_ORIGIN", "")
+TERMINAL_LIMIT = max(1, min(int(os.environ.get("VPS_MAX_TERMINAL_SESSIONS", "2")), 10))
+TERMINAL_ACTIVE = 0
+TERMINAL_LOCK = asyncio.Lock()
 try:
     import docker
     DOCKER = docker.from_env()
@@ -142,7 +145,14 @@ async def terminal(ws: WebSocket):
     except Exception:
         await ws.close(code=1008); return
 
-    master, slave = pty.openpty()
+    global TERMINAL_ACTIVE
+    async with TERMINAL_LOCK:
+        if TERMINAL_ACTIVE >= TERMINAL_LIMIT:
+            await ws.close(code=1013, reason="Terminal session limit reached"); return
+        TERMINAL_ACTIVE += 1
+    master = slave = pid = None
+    try:
+        master, slave = pty.openpty()
     env = os.environ.copy()
     env.update({"TERM": "xterm-256color", "COLORTERM": "truecolor"})
     pid = os.fork()
