@@ -1,0 +1,24 @@
+[Unit]
+Description=Vps Next.js Control Panel
+After=network.target vps-agent.service
+Wants=vps-agent.service
+
+[Service]
+Type=simple
+User=vpsagent
+Group=vpsagent
+WorkingDirectory=/opt/vps
+EnvironmentFile=/etc/vps/panel.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/opt/vps
+
+[Install]
+WantedBy=multi-user.target
