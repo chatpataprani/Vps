@@ -12,9 +12,9 @@ if (( ram_kb < 2097152 )) && ! swapon --show=NAME | grep -q '^/swapfile$'; then
   chmod 600 /swapfile; mkswap /swapfile; swapon /swapfile
   grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
-# Install Node 20 from NodeSource (required for current Next.js project).
+# Install Node 22 from NodeSource (required for current Next.js project).
 if ! command -v node >/dev/null || [[ $(node -p 'Number(process.versions.node.split(".")[0])') -lt 20 ]]; then
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y nodejs
 fi
 # Tailscale install script is upstream maintained.
