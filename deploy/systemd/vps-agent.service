@@ -1,0 +1,27 @@
+[Unit]
+Description=Vps Linux Agent
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=vpsagent
+Group=vpsagent
+WorkingDirectory=/opt/vps/agent
+EnvironmentFile=/etc/vps/agent.env
+Environment=VPS_AGENT_HOST=127.0.0.1
+Environment=VPS_AGENT_PORT=8787
+Environment=VPS_SITES_ROOT=/opt/vps/sites
+ExecStart=/opt/vps/agent/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8787
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/opt/vps/sites
+# Docker socket access is root-equivalent. Enable only for trusted admin use:
+# SupplementaryGroups=docker
+
+[Install]
+WantedBy=multi-user.target
