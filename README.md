@@ -6,8 +6,8 @@ A modular server platform for apps, Docker, static sites, storage, and terminal.
 - Next.js responsive dashboard and xterm terminal UI.
 - Python agent with authenticated REST endpoints for system metrics, Docker, static site folders, and PTY.
 - Websites page now uses the agent's `/api/sites` through a server-side allowlisted proxy.
-- File manager supports confined browsing, syntax-highlighted code editing (Monaco; language auto-detection/manual selection), folder/file creation, saving, 8 MiB binary upload/download, and individual file deletion.
-- Applications page can clone public GitHub/GitLab/Codeberg HTTPS repos with Dockerfiles, build images, run resource-limited managed containers, inspect logs, restart/stop/start, and delete.
+- File manager supports confined browsing, syntax-highlighted code editing (Monaco; language auto-detection/manual selection), folder/file creation, Ctrl+S saving, unsaved-change guards, 8 MiB binary upload/download, and individual file deletion. Website folders link directly into the file editor.
+- Applications page can clone public GitHub/GitLab/Codeberg HTTPS repos with Dockerfiles, build images, run resource-limited managed containers, set runtime environment variables, inspect logs, restart/stop/start, redeploy from Git, and delete.
 - HTTP Basic gate is enabled via `PANEL_USERNAME` and `PANEL_PASSWORD`; it fails closed if unset.
 - This is still a single-admin prototype—not production multi-user RBAC, audited terminal sessions, or a full app deployment platform. Never treat sample dashboard cards as real server state.
 
