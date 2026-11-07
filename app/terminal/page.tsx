@@ -1,0 +1,1 @@
+import TerminalClient from "./terminal-client"; export default function TerminalPage(){return <TerminalClient/>;}
