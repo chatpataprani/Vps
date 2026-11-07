@@ -50,7 +50,7 @@ def create_deployment(data:Create,authorization:str=Header(default="")):
     for m in re.findall(r"(?:0\.0\.0\.0|127\.0\.0\.1|\[::\]):(\d+)->",line):used.add(int(m))
    host=next((p for p in PORTS if p not in used),None)
    if host is None:raise HTTPException(503,"No free managed ports")
-   docker("run","--detach","--name",name,"--restart","unless-stopped","--publish",f"127.0.0.1:{host}:{data.port}","--memory","512m","--cpus","1","--pids-limit","256","--label","vps.managed=true","--label",f"vps.repo={data.repository}","--label",f"vps.host_port={host}","--label",f"vps.container_port={data.port}",*sum((["--env",f"{k}={v}"] for k,v in env_lines),[]),f"vps-{name}:latest")
+   docker("run","--detach","--name",name,"--restart","unless-stopped","--publish",f"127.0.0.1:{host}:{data.port}","--memory","512m","--cpus","1","--pids-limit","256","--label","vps.managed=true","--label",f"vps.repo={data.repository}","--label",f"vps.branch={data.branch}","--label",f"vps.host_port={host}","--label",f"vps.container_port={data.port}",*sum((["--env",f"{k}={v}"] for k,v in env_lines),[]),f"vps-{name}:latest")
    target.mkdir(exist_ok=True);(target/"deployment.json").write_text(__import__("json").dumps({"name":name,"repository":str(data.repository),"branch":data.branch,"host_port":host,"container_port":data.port}))
    return {"name":name,"repository":str(data.repository),"branch":data.branch,"host_port":host,"container_port":data.port,"url":f"http://127.0.0.1:{host}","status":"created"}
  except subprocess.TimeoutExpired:raise HTTPException(504,"Git clone/build timed out")
@@ -65,7 +65,33 @@ def action(name:str,action:str,authorization:str=Header(default="")):
  auth(authorization)
  if not NAME.fullmatch(name) or action not in {"start","stop","restart"}:raise HTTPException(400,"Invalid action")
  docker(action,name);return {"name":name,"action":action,"ok":True}
-@router.delete("/{name}")
+
+@router.post("/{name}/redeploy")
+def redeploy(name:str,authorization:str=Header(default="")):
+ auth(authorization)
+ if not NAME.fullmatch(name):raise HTTPException(400,"Invalid name")
+ import json
+ try:
+  info=json.loads(docker("inspect",name))[0]
+  labels=info.get("Config",{}).get("Labels",{})
+  if labels.get("vps.managed")!="true":raise HTTPException(403,"Only Vps-managed deployments can be redeployed")
+  repo=safe_repo(labels.get("vps.repo",""));branch=labels.get("vps.branch","main")
+  host=int(labels["vps.host_port"]);port=int(labels["vps.container_port"])
+  env=info.get("Config",{}).get("Env",[])
+  if not repo:raise HTTPException(400,"Repository metadata missing; recreate deployment")
+ except (KeyError,ValueError,IndexError):raise HTTPException(400,"Deployment metadata missing")
+ try:
+  with tempfile.TemporaryDirectory(prefix="vps-rebuild-",dir=str(WORK)) as tmp:
+   subprocess.run(["git","clone","--depth","1","--branch",branch,"--",repo,tmp+"/src"],capture_output=True,text=True,timeout=180,check=True)
+   source=Path(tmp+"/src")
+   if not (source/"Dockerfile").is_file():raise HTTPException(400,"Repository must include a Dockerfile")
+   docker("build","--pull","--tag",f"vps-{name}:latest","--label","vps.managed=true","--file",str(source/"Dockerfile"),str(source),timeout=600)
+  docker("rm","--force",name)
+  docker("run","--detach","--name",name,"--restart","unless-stopped","--publish",f"127.0.0.1:{host}:{port}","--memory","512m","--cpus","1","--pids-limit","256","--label","vps.managed=true","--label",f"vps.repo={repo}","--label",f"vps.branch={branch}","--label",f"vps.host_port={host}","--label",f"vps.container_port={port}",*sum((["--env",v] for v in env),[]),f"vps-{name}:latest")
+  return {"name":name,"redeployed":True,"status":"recreated"}
+ except subprocess.TimeoutExpired:raise HTTPException(504,"Redeploy timed out")
+ except subprocess.CalledProcessError as e:raise HTTPException(400,(e.stderr or "Redeploy failed")[-3000:])
+\n@router.delete("/{name}")
 def delete(name:str,authorization:str=Header(default="")):
  auth(authorization)
  if not NAME.fullmatch(name):raise HTTPException(400,"Invalid name")
