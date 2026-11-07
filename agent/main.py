@@ -119,23 +119,14 @@ class ContainerCommand(BaseModel):
 def container_exec(container_id:str,data:ContainerCommand,authorization:str=Header(default="")):
     authorize(authorization)
     if DOCKER is None: raise HTTPException(503,"Docker unavailable")
+    if not container_id or len(container_id)>128: raise HTTPException(400,"Invalid container ID")
     try:
         c=DOCKER.containers.get(container_id)
         if c.status!="running": raise HTTPException(409,"Container must be running")
-        result=DOCKER.api.exec_create(c.id,cmd=["/bin/sh","-lc",data.command],stdin=False,stdout=True,stderr=True,tty=False)
-        DOCKER.api.exec_start(result["Id"],detach=True)
-        import time
-        deadline=time.monotonic()+20
-        while time.monotonic()<deadline:
-            state=DOCKER.api.exec_inspect(result["Id"])
-            if not state.get("Running"): break
-            time.sleep(.15)
-        else: raise HTTPException(504,"Command timed out after 20 seconds")
-        output=DOCKER.api.exec_start(result["Id"],detach=False) if False else DOCKER.api.exec_inspect(result["Id"])
-        logs=DOCKER.api.exec_start(result["Id"],detach=False,tty=False) if False else b""
-        # Read the exec output from the non-streaming start endpoint.
-        logs=DOCKER.api.exec_start(result["Id"],detach=False,tty=False)
-        return {"output":logs.decode("utf-8","replace")[-16000:],"exit_code":state.get("ExitCode")}
+        result=subprocess.run(["docker","exec",c.id,"/bin/sh","-lc",data.command],capture_output=True,timeout=20)
+        output=(result.stdout+result.stderr).decode("utf-8","replace")[-16000:]
+        return {"output":output,"exit_code":result.returncode}
+    except subprocess.TimeoutExpired: raise HTTPException(504,"Command timed out after 20 seconds")
     except HTTPException: raise
     except Exception as exc: raise HTTPException(502,"Container command failed: "+str(exc)[:200])
 
