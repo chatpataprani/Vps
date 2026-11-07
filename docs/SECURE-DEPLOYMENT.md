@@ -4,7 +4,7 @@
 The dashboard has no native user/role system yet. It is protected by HTTP Basic auth middleware and MUST also be private. Do not publish TCP 3000 or 8787 on the public interface. Do not use Caddy to proxy the control panel.
 
 Use the VPS Tailscale IPv4 (100.x.y.z) for both services:
-- Panel URL on phone: `http://100.x.y.z:3000`
+- Panel URL on phone: `http://100.x.y.z:3000`\n- Set `PANEL_BIND_IP=100.x.y.z` in `/etc/vps/panel.env` and `VPS_AGENT_BIND_IP=100.x.y.z` in `/etc/vps/agent.env` (systemd units default to loopback for safety).
 - Agent URL in terminal: `ws://100.x.y.z:8787/terminal`
 - `VPS_AGENT_ORIGIN` must exactly match the URL in the phone browser, including scheme, host and port, e.g. `http://100.x.y.z:3000` (no trailing slash).
 - `VPS_AGENT_URL` for the Next server is `http://100.x.y.z:8787`.
@@ -35,7 +35,7 @@ VPS_AGENT_TOKEN=<same-token>
 VPS_AGENT_ORIGIN=http://100.x.y.z:3000
 VPS_SITES_ROOT=/opt/vps/sites
 ```
-`VPS_AGENT_ORIGIN` is exact browser dashboard origin. Protect both env files with chmod 600. Agent is authenticated by Bearer token for REST and first-message token for WebSocket.
+`VPS_AGENT_ORIGIN` is exact browser dashboard origin. Protect both env files with chmod 600. Run `sudo systemctl daemon-reload && sudo systemctl restart vps-agent vps-panel` after setting these bind addresses. Agent is authenticated by Bearer token for REST and first-message token for WebSocket.
 
 ## Build safely
 Check memory before building: `free -h`. If RAM <2 GiB and swap is absent, bootstrap creates 2 GiB swap. Install `build-essential` and `python3-dev`. Then:
